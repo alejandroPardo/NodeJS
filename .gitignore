@@ -57,3 +57,7 @@ typings/
 # dotenv environment variables file
 .env
 
+#unneeded directories
+CouchbaseMonitoring/
+iTranvias/
+scope-chains-closures/
