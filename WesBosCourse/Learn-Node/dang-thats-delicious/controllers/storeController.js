@@ -1,5 +1,20 @@
 const mongoose = require('mongoose');
 const Store = mongoose.model('Store');
+const multer = require('multer');
+const jimp = require('jimp');
+const uuid = require('uuid');
+
+const multerOptions = {
+  storage: multer.memoryStorage(),
+  fileFilter(req, file, next) {
+    const isPhoto = file.mimetype.startsWith('image/');
+    if(isPhoto){
+      next(null, true);
+    } else {
+      next({ message: 'That file isn\'t allowed!'}, false);
+    }
+  }
+}
 
 exports.homePage = (req, res) => {
   console.log(req.name);
@@ -15,6 +30,25 @@ exports.createStore = async (req, res) => {
   //can be success, warning, info or error
   req.flash('success', `Successfully created ${store.name}. Care to leave a review?`);
   res.redirect(`/store/${store.slug}`);
+}
+
+exports.upload = multer(multerOptions).single('photo');
+
+exports.resize = async (req, res, next) => {
+  //check if no new file
+  if(!req.file) {
+    next();
+    return;
+  }
+  const extension = req.file.mimetype.split('/')[1];
+  req.body.photo = `${uuid.v4()}.${extension}`;
+  //now we resize
+  const photo = await jimp.read(req.file.buffer);
+  await photo.resize(800, jimp.AUTO);
+  await photo.write(`./public/uploads/${req.body.photo}`);
+
+  //once written, keep going
+  next();
 }
 
 exports.updateStore = async (req, res) => {
@@ -45,4 +79,14 @@ exports.editStore = async (req, res) => {
 
   //render edit form
   res.render('editStore', { title: `Edit ${store.name}`, store });
+}
+
+exports.getStoreBySlug = async (req, res) => {
+  // Query the database for stores with id
+  const store = await Store.findOne({ slug: req.params.slug });
+
+  if (!store) return next();
+
+  //render edit form
+  res.render('store', { title: store.name, store });
 }
