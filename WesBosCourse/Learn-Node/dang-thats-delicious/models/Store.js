@@ -75,4 +75,51 @@ storeSchema.statics.getTagsList = function() {
   ]);
 }
 
+storeSchema.statics.getTopStores = function() {
+  return this.aggregate([
+    //lookup stores with reviews
+    { 
+      $lookup: {
+        from: 'reviews', localField: '_id', foreignField: 'store', as: 'reviews'
+      }
+    },
+    //filter for stores with more than 1 reviews
+    {
+      $match: {
+        'reviews.1': { $exists: true}
+      }
+    },
+    //add the average field
+    {
+      $addFields: {
+        averageRating: {
+          $avg: '$reviews.rating'
+        }
+      }
+    },
+    //sort by average
+    {
+      $sort: { averageRating: -1 }
+    },
+    //limit to 10
+    {
+      $limit: 10
+    }
+  ]);
+}
+
+storeSchema.virtual('reviews', {
+  ref: 'Review',
+  localField: '_id',
+  foreignField: 'store'
+})
+
+function autopopulate(next) {
+  this.populate('reviews');
+  next();
+}
+
+storeSchema.pre('find', autopopulate);
+storeSchema.pre('findOne', autopopulate);
+
 module.exports = mongoose.model('Store', storeSchema);
